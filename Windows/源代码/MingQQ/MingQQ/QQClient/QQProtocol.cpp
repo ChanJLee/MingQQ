@@ -1,6 +1,10 @@
 #include "StdAfx.h"
 #include "QQProtocol.h"
 
+#import "C:/windows/system32/msscript.ocx"
+
+using namespace MSScriptControl;
+
 #define	MAX_URL_LEN		3072		// 2048+1024
 
 CQQProtocol::CQQProtocol(void)
@@ -11,41 +15,96 @@ CQQProtocol::~CQQProtocol(void)
 {
 }
 
-// 检测是否需要输入验证码
-BOOL CQQProtocol::CheckVerifyCode(CHttpClient& HttpClient, LPCTSTR lpQQNum, 
-								  LPCTSTR lpAppId, CVerifyCodeInfo * lpVCInfo)
+// 获取登录信令
+BOOL CQQProtocol::GetLoginSig(CHttpClient& HttpClient, LPCTSTR lpAppId, tstring& strLoginSig)
 {
-	LPCTSTR lpszReqHeaders = _T("Accept: */*\r\nReferer: https://ui.ptlogin2.qq.com/cgi-bin/login?daid=164&target=self&style=5&mibao_css=m_webqq&appid=1003903&enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20130723001\r\nAccept-Language: zh-cn\r\n");
-	LPCTSTR lpFmt = _T("https://ssl.ptlogin2.qq.com/check?uin=%s&appid=%s&js_ver=10038&js_type=0&login_sig=P9011ArgB3ImUQV*BfKuftIu9o3lGeuIoBVBi*WjElOnOl2OzVIzg3gHjE0KJ9e3&u1=http%%3A%%2F%%2Fweb2.qq.com%%2Floginproxy.html&r=0.1790402590984438");
+	LPCTSTR lpszReqHeaders = _T("Accept: */*\r\nReferer: http://web2.qq.com/webqq.html\r\nAccept-Language: zh-cn\r\n");
+	LPCTSTR lpFmt = _T("https://ui.ptlogin2.qq.com/cgi-bin/login?daid=164&target=self&style=5&mibao_css=m_webqq&appid=%s&enable_qlogin=0&no_verifyimg=1&s_url=http%%3A%%2F%%2Fweb2.qq.com%%2Floginproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20140612002");
 	TCHAR szUrl[MAX_URL_LEN] = {0};
 	DWORD dwRespCode;
+	std::vector<tstring> arrRespHeader;
 	CBuffer RespData;
 	BOOL bRet;
 
-	if (NULL == lpQQNum || NULL == lpAppId || NULL == lpVCInfo)
+	if (NULL == lpAppId)
 		return FALSE;
 
-	wsprintf(szUrl, lpFmt, lpQQNum, lpAppId);
+	wsprintf(szUrl, lpFmt, lpAppId);
 
-	bRet = HttpGet(HttpClient, szUrl, lpszReqHeaders, dwRespCode, NULL, RespData);
+	bRet = HttpGet(HttpClient, szUrl, lpszReqHeaders, dwRespCode, &arrRespHeader, RespData);
 	if (!bRet || dwRespCode != 200)
+	{
+		arrRespHeader.clear();
+		return FALSE;
+	}
+
+	WCHAR * lpRespDataW = Utf8ToUnicode((const CHAR *)RespData.GetData());
+	if (NULL == lpRespDataW)
+		return FALSE;
+	tstring str = lpRespDataW;
+	delete []lpRespDataW;
+
+	strLoginSig = GetBetweenString(str.c_str(), _T("var g_login_sig=encodeURIComponent(\""), _T("\""));
+	
+// 	FILE* fp = fopen("D:/text.txt", "wb");
+// 	fwrite(RespData.GetData(), RespData.GetSize(), 1, fp);
+// 	fclose(fp);
+
+	arrRespHeader.clear();
+
+	return TRUE;
+
+}
+
+// 检测是否需要输入验证码
+BOOL CQQProtocol::CheckVerifyCode(CHttpClient& HttpClient, LPCTSTR lpQQNum, 
+								  LPCTSTR lpAppId, LPCTSTR lpLoginSig, 
+								  CVerifyCodeInfo * lpVCInfo)
+{
+	LPCTSTR lpszReqHeaders = _T("Accept: */*\r\nReferer: https://ui.ptlogin2.qq.com/cgi-bin/login?daid=164&target=self&style=5&mibao_css=m_webqq&appid=1003903&enable_qlogin=0&no_verifyimg=1&s_url=http%%3A%%2F%%2Fweb2.qq.com%%2Floginproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20140612002\r\nAccept-Language: zh-cn\r\n");
+	//LPCTSTR lpFmt = _T("https://ssl.ptlogin2.qq.com/check?uin=%s&appid=%s&js_ver=10038&js_type=0&login_sig=P9011ArgB3ImUQV*BfKuftIu9o3lGeuIoBVBi*WjElOnOl2OzVIzg3gHjE0KJ9e3&u1=http%%3A%%2F%%2Fweb2.qq.com%%2Floginproxy.html&r=0.1790402590984438");
+	LPCTSTR lpFmt = _T("https://ssl.ptlogin2.qq.com/check?pt_tea=1&uin=%s&appid=%s&js_ver=10114&js_type=0&login_sig=%s&u1=http%%3A%%2F%%2Fweb2.qq.com%%2Floginproxy.html&r=0.1790402590123438");
+	TCHAR szUrl[MAX_URL_LEN] = {0};
+	DWORD dwRespCode;
+	std::vector<tstring> arrRespHeader;
+	CBuffer RespData;
+	BOOL bRet;
+
+	if (NULL == lpQQNum || NULL == lpAppId ||
+		NULL == lpLoginSig || NULL == lpVCInfo)
 		return FALSE;
 
-	bRet = lpVCInfo->Parse(&RespData);
-	if (!bRet)
+	wsprintf(szUrl, lpFmt, lpQQNum, lpAppId, lpLoginSig);
+
+	bRet = HttpGet(HttpClient, szUrl, lpszReqHeaders, dwRespCode, &arrRespHeader, RespData);
+	if (!bRet || dwRespCode != 200)
+	{
+		arrRespHeader.clear();
 		return FALSE;
+	}
+
+	bRet = lpVCInfo->Parse(&RespData, &arrRespHeader);
+	if (!bRet)
+	{
+		arrRespHeader.clear();
+		return FALSE;
+	}
+
+	arrRespHeader.clear();
 
 	return TRUE;
 }
 
 // 获取验证码图片
 BOOL CQQProtocol::GetVerifyCodePic(CHttpClient& HttpClient, LPCTSTR lpAppId, 
-								   LPCTSTR lpQQNum, LPCTSTR lpVCType, CBuffer * lpVerifyCodePic)
+								   LPCTSTR lpQQNum, LPCTSTR lpVCType, 
+								   CBuffer * lpVerifyCodePic, tstring& strVerifySession)
 {
 	LPCTSTR lpszReqHeaders = _T("Accept: */*\r\nReferer: https://ui.ptlogin2.qq.com/cgi-bin/login?daid=164&target=self&style=5&mibao_css=m_webqq&appid=1003903&enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20130723001\r\nAccept-Language: zh-cn\r\n");
 	LPCTSTR lpFmt = _T("https://ssl.captcha.qq.com/getimage?aid=%s&r=0.43951176664325314&uin=%s");
 	TCHAR szUrl[MAX_URL_LEN] = {0};
 	DWORD dwRespCode;
+	std::vector<tstring> arrRespHeader;
 	CBuffer RespData;
 	BOOL bRet;
 
@@ -55,7 +114,7 @@ BOOL CQQProtocol::GetVerifyCodePic(CHttpClient& HttpClient, LPCTSTR lpAppId,
 
 	wsprintf(szUrl, lpFmt, lpAppId, lpQQNum);
 
-	bRet = HttpGet(HttpClient, szUrl, lpszReqHeaders, dwRespCode, NULL, RespData);
+	bRet = HttpGet(HttpClient, szUrl, lpszReqHeaders, dwRespCode, &arrRespHeader, RespData);
 	if (!bRet || dwRespCode != 200)
 		return FALSE;
 
@@ -64,43 +123,51 @@ BOOL CQQProtocol::GetVerifyCodePic(CHttpClient& HttpClient, LPCTSTR lpAppId,
 	if (!bRet)
 		return FALSE;
 
+	tstring strCookie;
+	tstring::size_type nPos;
+	int nIndex = 0;
+
+	while (1)
+	{
+		strCookie = GetRespHeader(&arrRespHeader, _T("Set-Cookie"), nIndex);
+		if (strCookie == _T(""))
+			break;
+
+		nPos = strCookie.find(_T("verifysession"));
+		if (nPos != tstring::npos)
+			strVerifySession = GetBetweenString(strCookie.c_str()+nPos+13, _T("="), _T(";"));
+
+		nIndex++;
+	}
+
 	return TRUE;
 }
 
 // 第一次登录
-BOOL CQQProtocol::Login1(CHttpClient& HttpClient, LPCTSTR lpQQNum, LPCTSTR lpQQPwd,	
-						 LPCTSTR lpVerifyCode, const CHAR * lpPtUin, int nPtUin, 
-						 LPCTSTR lpAppId, CLoginResult_1 * lpLoginResult1)
+BOOL CQQProtocol::Login1(CHttpClient& HttpClient, UINT nQQUin, LPCTSTR lpQQPwd,
+						 LPCTSTR lpVerifyCode, LPCTSTR lpLoginSig, LPCTSTR lpVerifySession, 
+						 LPCTSTR lpPtUin, LPCTSTR lpAppId, CLoginResult_1 * lpLoginResult1)
 {
 	LPCTSTR lpszReqHeaders = _T("Accept: */*\r\nReferer: https://ui.ptlogin2.qq.com/cgi-bin/login?daid=164&target=self&style=5&mibao_css=m_webqq&appid=1003903&enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20130723001\r\nAccept-Language: zh-cn\r\n");
-// 	LPCTSTR lpFmt = _T("https://ssl.ptlogin2.qq.com/login?u=%s&p=%s&verifycode=%s\
-// 		&webqq_type=10&remember_uin=1&login2qq=1&aid=%s&u1=http%%3A%%2F%%2Fweb.qq.com\
-// 		%%2Floginproxy.html%%3Flogin2qq%%3D1%%26webqq_type%%3D10&h=1&ptredirect=0&ptlang\
-// 		=2052&from_ui=1&pttype=1&dumy=&fp=loginerroralert&action=1-8-4593&mibao_css=m_webqq&t=1&g=1");
-	LPCTSTR lpFmt = _T("https://ssl.ptlogin2.qq.com/login?u=%s&p=%s&verifycode=%s\
-		&webqq_type=10&remember_uin=1&login2qq=1&aid=%s&u1=http%%3A%%2F%%2Fweb2.qq.com\
-		%%2Floginproxy.html%%3Flogin2qq%%3D1%%26webqq_type%%3D10&h=1&ptredirect=0&ptlang=2052\
-		&daid=164&from_ui=1&pttype=1&dumy=&fp=loginerroralert&action=3-13-11750&mibao_css=m_webqq\
-		&t=1&g=1&js_type=0&js_ver=10038&login_sig=P9011ArgB3ImUQV*BfKuftIu9o3lGeuIoBVBi*WjElOnOl2OzVIzg3gHjE0KJ9e3");
-	TCHAR szQQNum[32] = {0}, szQQPwd[32] = {0}, szVerifyCode[32] = {0};
-	TCHAR szPwdHash[64] = {0};
+	LPCTSTR lpFmt = _T("https://ssl.ptlogin2.qq.com/login?u=%u&p=%s&verifycode=%s\
+		&webqq_type=10&remember_uin=1&login2qq=1&aid=%s&u1=http%%3A%%2F%%2Fweb2.qq.com%%2Floginproxy.html%%3Flogin2qq%%3D1%%26webqq_type%%3D10\
+		&h=1&ptredirect=0&ptlang=2052&daid=164&from_ui=1&pttype=1&dumy=&fp=loginerroralert\
+		&action=2-7-7688&mibao_css=m_webqq&t=1&g=1&js_type=0&js_ver=10114&login_sig=%s\
+		&pt_uistyle=5&pt_randsalt=0&pt_vcode_v1=0&pt_verifysession_v1=%s");
 	TCHAR szUrl[MAX_URL_LEN] = {0};
 	DWORD dwRespCode;
 	std::vector<tstring> arrRespHeader;
 	CBuffer RespData;
 	BOOL bRet;
 
-	if (NULL == lpQQNum || NULL == lpQQPwd || NULL == lpVerifyCode 
-		|| NULL == lpPtUin || nPtUin <= 0 || NULL == lpAppId || NULL == lpLoginResult1)
+	if (NULL == lpQQPwd || NULL == lpVerifyCode 
+		|| NULL == lpLoginSig || NULL == lpVerifySession 
+		|| NULL == lpPtUin || NULL == lpAppId || NULL == lpLoginResult1)
 		return FALSE;
 	
-	_tcsncpy(szQQNum, lpQQNum, sizeof(szQQNum)/sizeof(TCHAR)-1);
-	_tcsncpy(szQQPwd, lpQQPwd, sizeof(szQQPwd)/sizeof(TCHAR)-1);
-	_tcsncpy(szVerifyCode, lpVerifyCode, sizeof(szVerifyCode)/sizeof(TCHAR)-1);
+	std::wstring strPwdHash = CalcPwdHash(lpPtUin, lpQQPwd, lpVerifyCode);
 
-	CalcPwdHash(lpQQPwd, szVerifyCode, lpPtUin, nPtUin, szPwdHash, sizeof(szPwdHash)/sizeof(TCHAR));
-
-	wsprintf(szUrl, lpFmt, szQQNum, szPwdHash, szVerifyCode, lpAppId);
+	wsprintf(szUrl, lpFmt, nQQUin, strPwdHash.c_str(), lpVerifyCode, lpAppId, lpLoginSig, lpVerifySession);
 
 	bRet = HttpGet(HttpClient, szUrl, lpszReqHeaders, dwRespCode, &arrRespHeader, RespData);
 	if (!bRet || dwRespCode != 200)
@@ -1513,58 +1580,83 @@ std::wstring CQQProtocol::UnicodeToHexStr(const WCHAR * lpStr, BOOL bDblSlash)
 }
 
 // 计算第一次登录的密码hash参数
-BOOL CQQProtocol::CalcPwdHash(LPCTSTR lpQQPwd, LPCTSTR lpVerifyCode, 
-							  const CHAR * lpPtUin, int nPtUinLen, TCHAR * lpPwdHash, int nLen)
+std::wstring CQQProtocol::CalcPwdHash(LPCTSTR lpPtUin, LPCTSTR lpQQPwd, LPCTSTR lpVerifyCode)
 {
-	CHAR cQQPwd[128] = {0};
-	CHAR cVerifyCode[128] = {0};
-	CHAR cHex[36] = {0};
-	CHAR cTemp[256] = {0};
-	const byte * lpDigest;
-	MD5 md5;
+	tstring strJSFileName = ZYM::CPath::GetAppPath();
+	strJSFileName += _T("mq_comm.js");
 
-	// UPPER(HEX(MD5(UPPER(HEX(MD5(MD5(密码) + PtUin))) + UPPER(验证码))))
+	CHAR * pData = NULL;
+	LONG lSize = 0;
+	BOOL bRet = File_ReadAll(strJSFileName.c_str(), &pData, &lSize);
+	if (!bRet)
+		return L"";
 
-	if (NULL == lpQQPwd || NULL == lpVerifyCode
-		|| NULL == lpPtUin || nPtUinLen <= 0
-		|| NULL == lpPwdHash || nLen <= 0)
-		return FALSE;
+	HRESULT hr = CoInitialize(NULL);
 
-	UnicodeToUtf8(lpQQPwd, cQQPwd, sizeof(cQQPwd));
-	UnicodeToUtf8(lpVerifyCode, cVerifyCode, sizeof(cVerifyCode));
+	IScriptControlPtr pScriptControl(__uuidof(ScriptControl));
 
-	md5.reset();
-	md5.update((const void *)cQQPwd, strlen(cQQPwd));
-	lpDigest = md5.digest();
+	// Create a VARIANT array of VARIANTs which hold BSTRs
+	LPSAFEARRAY psa;
+	SAFEARRAYBOUND rgsabound[]  = { 3, 0 }; // 3 elements, 0-based
+	int i;
 
-	memset(cTemp, 0, sizeof(cTemp));
-	memcpy(cTemp, lpDigest, 16);
-	memcpy(&cTemp[16], lpPtUin, nPtUinLen);
+	psa = SafeArrayCreate(VT_VARIANT, 1, rgsabound);
+	if (!psa)
+	{
+		return L"";
+	}
 
-	md5.reset();
-	md5.update((const void *)cTemp, 16 + nPtUinLen);
-	lpDigest = md5.digest();
+	VARIANT varArgs[3];
+	for (i = 0; i < 3; i++)
+	{
+		VariantInit(&varArgs[i]);
+	}
 
-	ToHexStr((const CHAR *)lpDigest, 16, cHex, sizeof(cHex));
-	_strupr(cHex);
-	_strupr(cVerifyCode);
+	V_VT(&varArgs[0]) = VT_BSTR;
+	V_BSTR(&varArgs[0]) = SysAllocString(lpPtUin);
 
-	int nHexLen = strlen(cHex);
-	int nVerifyCodeLen = strlen(cVerifyCode);
-	memset(cTemp, 0, sizeof(cTemp));
-	memcpy(cTemp, cHex, nHexLen);
-	memcpy(&cTemp[nHexLen], cVerifyCode, nVerifyCodeLen);
+	V_VT(&varArgs[1]) = VT_BSTR;
+	V_BSTR(&varArgs[1]) = SysAllocString(lpQQPwd);
 
-	md5.reset();
-	md5.update((const void *)cTemp, nHexLen + nVerifyCodeLen);
-	lpDigest = md5.digest();
+	V_VT(&varArgs[2]) = VT_BSTR;
+	V_BSTR(&varArgs[2]) = SysAllocString(lpVerifyCode);
 
-	ToHexStr((const CHAR *)lpDigest, 16, cHex, sizeof(cHex));
-	_strupr(cHex);
+	long lZero = 0;
+	long lOne = 1;
+	long lTwo = 2;
 
-	Utf8ToUnicode(cHex, lpPwdHash, nLen);
+	// Put Elements to the SafeArray:
+	hr = SafeArrayPutElement(psa, &lZero, &varArgs[0]);
+	hr = SafeArrayPutElement(psa, &lOne, &varArgs[1]);
+	hr = SafeArrayPutElement(psa, &lTwo, &varArgs[2]);
 
-	return TRUE;
+	// Free Elements from the SafeArray:
+	for(i=0;i<3;i++)
+	{
+		::VariantClear(&varArgs[i]);
+	}
+
+	// Set up Script control properties
+	pScriptControl->Language = "JavaScript";
+	pScriptControl->AllowUI = FALSE;
+	pScriptControl->AddCode(pData);
+
+	//  Call MyStringFunction with the two args:
+	_variant_t outpar = pScriptControl->Run("calcPwdHash", &psa);
+
+	// Convert VARIANT to C string:
+	_bstr_t bstrReturn = (_bstr_t)outpar;
+	//char *pResult = (char *)bstrReturn;
+
+	// Print the result out:
+	//printf("func=%s\n",pResult);
+
+	//  Clean up:
+	SafeArrayDestroy(psa);
+
+	CoUninitialize();
+
+	return bstrReturn;
 }
 
 // 计算获取好友/群列表的hash参数

@@ -33,8 +33,12 @@ int CLoginTask::Run()
 
 	if (m_lpQQUser->m_strVerifyCode.empty())
 	{
+		// 获取登录信令
+		m_lpQQProtocol->GetLoginSig(m_HttpClient, WEBQQ_APP_ID, m_lpQQUser->m_strLoginSig);
+
 		bRet = m_lpQQProtocol->CheckVerifyCode(m_HttpClient,		// 检测是否需要输入验证码
-			m_lpQQUser->m_strQQNum.c_str(), WEBQQ_APP_ID, &m_lpQQUser->m_VerifyCodeInfo);
+			m_lpQQUser->m_strQQNum.c_str(), WEBQQ_APP_ID, 
+			m_lpQQUser->m_strLoginSig.c_str(), &m_lpQQUser->m_VerifyCodeInfo);
 		if (!bRet || m_bStop)
 			goto Ret0;
 
@@ -43,7 +47,7 @@ int CLoginTask::Run()
 			bRet = m_lpQQProtocol->GetVerifyCodePic(m_HttpClient,	// 获取验证码图片
 				WEBQQ_APP_ID, m_lpQQUser->m_strQQNum.c_str(), 
 				m_lpQQUser->m_VerifyCodeInfo.m_strVCType.c_str(), 
-				&m_lpQQUser->m_VerifyCodePic);
+				&m_lpQQUser->m_VerifyCodePic, m_lpQQUser->m_strVerifySession);
 			if (!bRet || m_bStop)
 				goto Ret0;
 			
@@ -53,13 +57,14 @@ int CLoginTask::Run()
 		else														// 不需要验证码
 		{
 			m_lpQQUser->m_strVerifyCode = m_lpQQUser->m_VerifyCodeInfo.m_strVerifyCode;
+			m_lpQQUser->m_strVerifySession = m_lpQQUser->m_VerifyCodeInfo.m_strVerifySession;
 		}
 	}
 
-	bRet = m_lpQQProtocol->Login1(m_HttpClient, m_lpQQUser->m_strQQNum.c_str(),		// 第一次登录
+	bRet = m_lpQQProtocol->Login1(m_HttpClient, m_lpQQUser->m_nQQUin,	// 第一次登录
 		m_lpQQUser->m_strQQPwd.c_str(), m_lpQQUser->m_strVerifyCode.c_str(), 
-		m_lpQQUser->m_VerifyCodeInfo.m_cPtUin, m_lpQQUser->m_VerifyCodeInfo.m_nPtUinLen,
-		WEBQQ_APP_ID, &m_lpQQUser->m_LoginResult1);
+		m_lpQQUser->m_strLoginSig.c_str(), m_lpQQUser->m_strVerifySession.c_str(), 
+		m_lpQQUser->m_VerifyCodeInfo.m_strPtUin.c_str(), WEBQQ_APP_ID, &m_lpQQUser->m_LoginResult1);
 	if (!bRet || m_bStop)
 		goto Ret0;
 
@@ -70,7 +75,7 @@ int CLoginTask::Run()
 			bRet = m_lpQQProtocol->GetVerifyCodePic(m_HttpClient,	// 获取验证码图片
 				WEBQQ_APP_ID, m_lpQQUser->m_strQQNum.c_str(), 
 				m_lpQQUser->m_VerifyCodeInfo.m_strVCType.c_str(), 
-				&m_lpQQUser->m_VerifyCodePic);
+				&m_lpQQUser->m_VerifyCodePic, m_lpQQUser->m_strVerifySession);
 			if (!bRet || m_bStop)
 				goto Ret0;
 			

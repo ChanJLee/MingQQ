@@ -11,6 +11,8 @@ CQQUser::CQQUser(void)
 	m_nLoginStatus = QQ_STATUS_ONLINE;
 	m_nStatus = QQ_STATUS_OFFLINE;
 	m_strVerifyCode = _T("");
+	m_strLoginSig = _T("");
+	m_strVerifySession = _T("");
 	m_strUserFolder = ZYM::CPath::GetAppPath() + _T("Users\\");
 }
 

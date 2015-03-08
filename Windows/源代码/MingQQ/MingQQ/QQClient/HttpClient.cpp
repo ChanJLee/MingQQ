@@ -56,7 +56,7 @@ BOOL CHttpClient::OpenRequest(LPCTSTR lpszUrl, HTTP_REQ_METHOD nReqMethod/* = RE
 		lpszProxy = NULL;
 	}
 
-	m_hInternet = ::InternetOpen(IE8_USER_AGENT, 
+	m_hInternet = ::InternetOpen(CHROME_USER_AGENT, 
 		dwAccessType, lpszProxy, NULL, INTERNET_FLAG_ASYNC);
 	if (NULL == m_hInternet)
 	{

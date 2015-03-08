@@ -100,58 +100,85 @@ CVerifyCodeInfo::~CVerifyCodeInfo(void)
 
 void CVerifyCodeInfo::Reset()
 {
+	m_strVerifySession = _T("");
 	m_nNeedVerify = 0;
 	m_strVerifyCode = _T("");
 	m_strVCType = _T("");
-	m_nPtUinLen = sizeof(m_cPtUin) / sizeof(CHAR);
-	memset(m_cPtUin, 0, m_nPtUinLen);
+	m_strPtUin = _T("");
 }
 
-BOOL CVerifyCodeInfo::Parse(CBuffer * lpBuf)
+BOOL CVerifyCodeInfo::Parse(CBuffer * lpBuf, std::vector<tstring>* arrRespHeader)
 {
-	if (NULL == lpBuf || lpBuf->GetData() == NULL || lpBuf->GetSize() <= 0)
+	if (NULL == lpBuf || lpBuf->GetData() == NULL 
+		|| lpBuf->GetSize() <= 0 || NULL == arrRespHeader)
 		return FALSE;
 
 	Reset();
 
-	// ptui_checkVC('0','!C4P', '\x00\x00\x00\x00\x32\x87\x00\x6c');
+	tstring strCookie;
+	tstring::size_type nPos;
+	int nIndex = 0;
+
+	while (1)
+	{
+		strCookie = GetRespHeader(arrRespHeader, _T("Set-Cookie"), nIndex);
+		if (strCookie == _T(""))
+			break;
+
+		nPos = strCookie.find(_T("ptvfsession"));
+		if (nPos != tstring::npos)
+			m_strVerifySession = GetBetweenString(strCookie.c_str()+nPos+11, _T("="), _T(";"));
+
+		nIndex++;
+	}
+
+	// ptui_checkVC('1','x8q5LZ7wvEahePcdJeDOPVtNBwCSl4fe','\x00\x00\x00\x00\xae\xf3\xfe\x16','','0');
 
 	WCHAR * lpRespDataW = Utf8ToUnicode((const CHAR *)lpBuf->GetData());
 	if (NULL == lpRespDataW)
 		return FALSE;
-
-	//LPCTSTR lpFmt = _T("ptui_checkVC('%d','%[^']', '%[^']');");
-	//_stscanf(lpRespDataW, lpFmt, &m_nNeedVerify, cTemp1, cTemp2);
-
 	tstring str = lpRespDataW;
 	delete []lpRespDataW;
 
 	tstring strTemp1, strTemp2, strTemp3;
-	
+
 	tstring::size_type nPos1 = str.find(_T("ptui_checkVC('"));
 	if (nPos1 != tstring::npos)
 	{
 		nPos1 += _tcslen(_T("ptui_checkVC('"));
-		tstring::size_type nPos2 = str.find(_T("','"), nPos1);
+		tstring::size_type nPos2 = str.find(_T("'"), nPos1);
 		if (nPos2 != tstring::npos)
 		{
 			strTemp1 = str.substr(nPos1, nPos2 - nPos1);
-			if (!strTemp1.empty())
-				m_nNeedVerify = ::_tcstol(strTemp1.c_str(), NULL, 10);
 
-			nPos1 = nPos2+_tcslen(_T("','"));
-			nPos2 = str.find(_T("','"), nPos1);
-			if (nPos2 != tstring::npos)
+			nPos1 = nPos2+_tcslen(_T("'"));
+			nPos1 = str.find(_T("'"), nPos1);
+			if (nPos1 != tstring::npos)
 			{
-				strTemp2 = str.substr(nPos1, nPos2 - nPos1);
-
-				nPos1 = nPos2+_tcslen(_T("','"));
-				nPos2 = str.find(_T("');"), nPos1);
+				nPos1 += _tcslen(_T("'"));
+				nPos2 = str.find(_T("'"), nPos1);
 				if (nPos2 != tstring::npos)
-					strTemp3 = str.substr(nPos1, nPos2 - nPos1);
+				{
+					strTemp2 = str.substr(nPos1, nPos2 - nPos1);
+
+					nPos1 = nPos2+_tcslen(_T("'"));
+					nPos1 = str.find(_T("'"), nPos1);
+					if (nPos1 != tstring::npos)
+					{
+						nPos1 += _tcslen(_T("'"));
+						nPos2 = str.find(_T("'"), nPos1);
+						if (nPos2 != tstring::npos)
+						{
+							strTemp3 = str.substr(nPos1, nPos2 - nPos1);
+						}
+					}
+				}
 			}
 		}
 	}
+
+	if (!strTemp1.empty())
+		m_nNeedVerify = ::_tcstol(strTemp1.c_str(), NULL, 10);
 
 	if (m_nNeedVerify == 0)		// 不需要验证码
 	{
@@ -164,51 +191,7 @@ BOOL CVerifyCodeInfo::Parse(CBuffer * lpBuf)
 		m_strVerifyCode = _T("");
 	}
 
-	m_nPtUinLen = sizeof(m_cPtUin) / sizeof(CHAR);
-	memset(m_cPtUin, 0, m_nPtUinLen);
-	return ParsePtUin(strTemp3.c_str(), m_cPtUin, m_nPtUinLen);
-}
-
-BOOL CVerifyCodeInfo::ParsePtUin(const TCHAR * lpInPtUin, CHAR * lpOutPtUin, int& nOutPtUinLen)
-{
-	nOutPtUinLen = 0;
-
-	if (NULL == lpOutPtUin)
-		return FALSE;
-
-	memset(lpOutPtUin, 0, nOutPtUinLen);
-
-	if (NULL == lpInPtUin || NULL == *lpInPtUin)
-		return FALSE;
-
-	TCHAR cTemp[3] = {0};
-
-	int nInPtUinLen = _tcslen(lpInPtUin);
-	for (int i = 0; i < nInPtUinLen; i++)
-	{
-		if (lpInPtUin[i] == _T('\\') && lpInPtUin[i+1] == _T('x'))
-		{
-			i += 2;
-			if (i + 1 < nInPtUinLen && isalnum(lpInPtUin[i]) && isalnum(lpInPtUin[i+1]))
-			{
-				cTemp[0] = lpInPtUin[i];
-				cTemp[1] = lpInPtUin[i+1];
-				cTemp[2] = _T('\0');
-				lpOutPtUin[m_nPtUinLen] = _tcstol(cTemp, NULL, 16);
-				m_nPtUinLen++;
-				i += 1;
-			}
-			else
-			{
-				continue;
-			}
-		}
-		else
-		{
-			continue;
-		}
-	}
-
+	m_strPtUin = strTemp3;
 	return TRUE;
 }
 

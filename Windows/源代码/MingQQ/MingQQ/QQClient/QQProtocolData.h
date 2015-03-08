@@ -139,17 +139,14 @@ public:
 
 public:
 	void Reset();
-	BOOL Parse(CBuffer * lpBuf);
-
-private:
-	BOOL ParsePtUin(const TCHAR * lpInPtUin, CHAR * lpOutPtUin, int& nOutPtUinLen);
+	BOOL Parse(CBuffer * lpBuf, std::vector<tstring>* arrRespHeader);
 
 public:
+	tstring m_strVerifySession;
 	int m_nNeedVerify;
 	tstring m_strVerifyCode;
 	tstring m_strVCType;
-	CHAR m_cPtUin[1024];
-	int m_nPtUinLen;
+	tstring m_strPtUin;
 };
 
 class CLoginResult_1

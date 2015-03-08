@@ -40,6 +40,8 @@ public:
 	QQ_STATUS m_nLoginStatus;
 	CBuffer m_VerifyCodePic;
 	tstring m_strVerifyCode;
+	tstring m_strLoginSig;
+	tstring m_strVerifySession;
 	CVerifyCodeInfo m_VerifyCodeInfo;
 	CLoginResult_1 m_LoginResult1;
 	CLoginResult_2 m_LoginResult2;

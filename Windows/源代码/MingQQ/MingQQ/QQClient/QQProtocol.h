@@ -14,13 +14,14 @@ public:
 	~CQQProtocol(void);
 
 public:
+	BOOL GetLoginSig(CHttpClient& HttpClient, LPCTSTR lpAppId, tstring& strLoginSig);	// 获取登录信令
 	BOOL CheckVerifyCode(CHttpClient& HttpClient, LPCTSTR lpQQNum,	// 检测是否需要输入验证码
-		LPCTSTR lpAppId, CVerifyCodeInfo * lpVCInfo);
+		LPCTSTR lpAppId, LPCTSTR lpLoginSig, CVerifyCodeInfo * lpVCInfo);
 	BOOL GetVerifyCodePic(CHttpClient& HttpClient, LPCTSTR lpAppId,	// 获取验证码图片
-		LPCTSTR lpQQNum, LPCTSTR lpVCType, CBuffer * lpVerifyCodePic);
-	BOOL Login1(CHttpClient& HttpClient, LPCTSTR lpQQNum, LPCTSTR lpQQPwd,	// 第一次登录
-		LPCTSTR lpVerifyCode, const CHAR * lpPtUin, int nPtUin, 
-		LPCTSTR lpAppId, CLoginResult_1 * lpLoginResult1);
+		LPCTSTR lpQQNum, LPCTSTR lpVCType, CBuffer * lpVerifyCodePic, tstring& strVerifySession);
+	BOOL Login1(CHttpClient& HttpClient, UINT nQQUin, LPCTSTR lpQQPwd,	// 第一次登录
+		LPCTSTR lpVerifyCode, LPCTSTR lpLoginSig, LPCTSTR lpVerifySession, 
+		LPCTSTR lpPtUin, LPCTSTR lpAppId, CLoginResult_1 * lpLoginResult1);
 	BOOL Login2(CHttpClient& HttpClient, QQ_STATUS nQQStatus,		// 第二次登录
 		LPCTSTR lpPtWebQq, LPCTSTR lpClientId, CLoginResult_2 * lpLoginResult2);
 	BOOL Logout(CHttpClient& HttpClient, LPCTSTR lpClientId,		// 注销
@@ -93,7 +94,9 @@ private:
 	std::string EncodeData(const WCHAR * lpData, int nLen);
 	std::wstring UnicodeToHexStr(const WCHAR * lpStr, BOOL bDblSlash);
 
-	BOOL CalcPwdHash(LPCTSTR lpQQPwd, LPCTSTR lpVerifyCode,	// 计算第一次登录的密码hash参数
-		const CHAR * lpPtUin, int nPtUinLen, TCHAR * lpPwdHash, int nLen);
-	std::string CalcHash(UINT nQQUin, LPCTSTR lpPtWebQq);	// 计算获取好友/群列表的hash参数
+	// 计算第一次登录的密码hash参数
+	std::wstring CalcPwdHash(LPCTSTR lpPtUin, LPCTSTR lpQQPwd, LPCTSTR lpVerifyCode);
+
+	// 计算获取好友/群列表的hash参数
+	std::string CalcHash(UINT nQQUin, LPCTSTR lpPtWebQq);
 };
