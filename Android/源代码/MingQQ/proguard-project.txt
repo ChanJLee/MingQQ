@@ -18,3 +18,17 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+
+-libraryjars libs/android-support-v4.jar
+-libraryjars libs/httpmime-4.3.3.jar
+
+-ignorewarnings
+
+-keep class org.apache.http.** {*;}
+
+-keepclassmembers class com.zym.mingqq.JsEngine$JsObject {
+  public *;
+}
+
+-keepattributes *Annotation*
+-keepattributes *JavascriptInterface*

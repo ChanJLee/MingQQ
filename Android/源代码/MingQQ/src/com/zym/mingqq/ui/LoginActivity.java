@@ -123,8 +123,7 @@ public class LoginActivity extends Activity implements OnClickListener {
             m_edtNum.setText(strQQNum);
             m_edtPwd.setText(strQQPwd);
         } else {
-//        	m_edtNum.setText("3040103774");
-//            m_edtPwd.setText("testtest");
+
         }
 	}
 
