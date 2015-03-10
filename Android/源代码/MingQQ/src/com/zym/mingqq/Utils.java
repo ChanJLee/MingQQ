@@ -51,9 +51,10 @@ public class Utils {
 			String strEnd) {
 		int nPos1 = str.indexOf(strStart);
 		if (nPos1 != -1) {
-			int nPos2 = str.indexOf(strEnd, nPos1+1);
+			nPos1 += strStart.length();
+			int nPos2 = str.indexOf(strEnd, nPos1);
 			if (nPos2 != -1) {
-				return str.substring(nPos1+1, nPos2);
+				return str.substring(nPos1, nPos2);
 			}
 		}
 		return str;

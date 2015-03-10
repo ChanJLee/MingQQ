@@ -2,12 +2,9 @@
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.io.File;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
-import java.security.MessageDigest;
 
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -21,6 +18,8 @@ import org.apache.http.protocol.HTTP;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.zym.mingqq.AppData;
+import com.zym.mingqq.JsEngine;
 import com.zym.mingqq.Utils;
 import com.zym.mingqq.qqclient.QQHttpClient;
 import com.zym.mingqq.qqclient.protocol.protocoldata.*;
@@ -30,14 +29,62 @@ public class QQProtocol {
 	public final static String WEBQQ_APP_ID = "1003903";
 	public final static String WEBQQ_CLIENT_ID = "97518388";
 	
+	// 获取登录信令
+	public static String getLoginSig(QQHttpClient httpClient, String strAppId) {
+		try {
+			String url = "https://ui.ptlogin2.qq.com/cgi-bin/login?";
+			url += "daid=164&target=self&style=5&mibao_css=m_webqq&";
+			url += "appid=" + strAppId + "&";
+			url += "enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&";
+			url += "f_url=loginerroralert&strong_login=1&login_state=10&t=20140612002";
+			
+ 			System.out.println(url);
+ 			
+ 			boolean bRet = httpClient.openRequest(url, QQHttpClient.REQ_METHOD_GET);
+			if (!bRet) {
+				return "";
+			}
+			
+			httpClient.addHeader("Accept", "*/*");  
+			httpClient.addHeader("Referer", "http://web2.qq.com/webqq.html");  
+			httpClient.addHeader("Accept-Language","zh-cn");  
+	        
+			httpClient.sendRequest();
+			
+			int nRespCode = httpClient.getRespCode();
+			if (nRespCode != 200) {
+				httpClient.closeRequest();
+				return "";
+			}
+			
+			byte[] bytRespData = httpClient.getRespBodyData();
+			httpClient.closeRequest();
+			
+			if (bytRespData == null || bytRespData.length <= 0)
+				return "";
+
+			String strData = new String(bytRespData, "UTF-8");
+			System.out.println(strData);
+			
+			return Utils.GetBetweenString(strData, "var g_login_sig=encodeURIComponent(\"", "\"");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+        return "";
+	}
+	
+	// 检查是否需要输入验证码
 	public static boolean checkVerifyCode(QQHttpClient httpClient, 
 			String strQQNum, String strAppId, VerifyCodeInfo result) {
 		
 		try {
 			String url = "https://ssl.ptlogin2.qq.com/check?";
+			url += "pt_tea=1&";
 			url += "uin=" + strQQNum + "&";
 			url += "appid=" + strAppId + "&";
-			url += "js_ver=10038&js_type=0&login_sig=P9011ArgB3ImUQV*BfKuftIu9o3lGeuIoBVBi*WjElOnOl2OzVIzg3gHjE0KJ9e3&u1=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&r=0.1790402590984438";
+			url += "js_ver=10114&js_type=0&";
+			url += "login_sig=" + result.m_strLoginSig + "&";
+			url += "u1=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&r=0.1790402590123438";
 			
 			boolean bRet = httpClient.openRequest(url, QQHttpClient.REQ_METHOD_GET);
 			if (!bRet) {
@@ -45,7 +92,7 @@ public class QQProtocol {
 			}
 			
 			httpClient.addHeader("Accept", "*/*");  
-			httpClient.addHeader("Referer", "https://ui.ptlogin2.qq.com/cgi-bin/login?daid=164&target=self&style=5&mibao_css=m_webqq&appid=1003903&enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20130723001");  
+			httpClient.addHeader("Referer", "https://ui.ptlogin2.qq.com/cgi-bin/login?daid=164&target=self&style=5&mibao_css=m_webqq&appid=1003903&enable_qlogin=0&no_verifyimg=1&s_url=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html&f_url=loginerroralert&strong_login=1&login_state=10&t=20140612002");  
 			httpClient.addHeader("Accept-Language","zh-cn");  
 	        
 			httpClient.sendRequest();
@@ -55,11 +102,12 @@ public class QQProtocol {
 				httpClient.closeRequest();
 				return false;
 			}
-				
+			
+			List<Cookie> cookies = httpClient.getCookies();
 			byte[] bytRespData = httpClient.getRespBodyData();
 			httpClient.closeRequest();
 			
-			return result.parse(bytRespData);
+			return result.parse(bytRespData, cookies);
 			
 //			CookieStore httpCookies = (CookieStore)m_httpContext.getAttribute(ClientContext.COOKIE_STORE);
 //			List<Cookie> respCookieList = httpCookies.getCookies();
@@ -77,7 +125,7 @@ public class QQProtocol {
 	
 	// 获取验证码图片
 	public static byte[] getVerifyCodePic(QQHttpClient httpClient,
-			String strAppId, String strQQNum, String strVCType) {
+			String strAppId, String strQQNum, VerifyCodeInfo vcodeInfo) {
 		try {
 			String url = "https://ssl.captcha.qq.com/getimage?";
 			url += "aid=" + strAppId + "&";
@@ -104,9 +152,18 @@ public class QQProtocol {
 				return null;
 			}
 
+			List<Cookie> cookies = httpClient.getCookies();
 			byte[] bytRespData = httpClient.getRespBodyData();
 			httpClient.closeRequest();
 
+			for(Cookie cookie : cookies)
+			{
+				System.out.println(cookie);
+				
+				if (cookie.getName().equals("verifysession"))
+					vcodeInfo.m_strVerifySession = cookie.getValue();
+			}
+			
 			return bytRespData;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -116,23 +173,25 @@ public class QQProtocol {
 	}
 	
 	public static boolean login1(QQHttpClient httpClient, 
-			String strQQNum, String strQQPwd, String strVerifyCode, 
-			byte[] bytPtUin, String strAppId, LoginResult_1 result) {
+			int nQQUin, String strQQPwd, String strVerifyCode, 
+			String strLoginSig, String strVerifySession, String strPtUin, 
+			String strAppId, LoginResult_1 result) {
 		try {
-			String strPwdHash = CalcPwdHash(strQQPwd, strVerifyCode, bytPtUin);
+			String strPwdHash = calcPwdHash(strPtUin, strQQPwd, strVerifyCode);
 			
 			String url = "https://ssl.ptlogin2.qq.com/login?";
-			url += "u=" + strQQNum + "&";
+			url += "u=" + Utils.getUInt(nQQUin) + "&";
 			url += "p=" + strPwdHash + "&";
 			url += "verifycode=" + strVerifyCode + "&";
+			url += "webqq_type=10&remember_uin=1&login2qq=1&";
 			url += "aid=" + strAppId + "&";
- 			url += "webqq_type=10&remember_uin=1&login2qq=1&" +
-					"u1=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html%3Flogin2qq%3D1%26webqq_type%3D10" +
-					"&h=1&ptredirect=0&ptlang=2052&daid=164&from_ui=1&pttype=1" +
-					"&dumy=&fp=loginerroralert&action=3-13-11750&mibao_css=m_webqq&" +
-					"t=1&g=1&js_type=0&js_ver=10038&" +
-					"login_sig=P9011ArgB3ImUQV*BfKuftIu9o3lGeuIoBVBi*WjElOnOl2OzVIzg3gHjE0KJ9e3";
-			
+			url += "u1=http%3A%2F%2Fweb2.qq.com%2Floginproxy.html%3Flogin2qq%3D1%26webqq_type%3D10&";
+			url += "h=1&ptredirect=0&ptlang=2052&daid=164&from_ui=1&pttype=1&dumy=&fp=loginerroralert&";
+			url += "action=2-7-7688&mibao_css=m_webqq&t=1&g=1&js_type=0&js_ver=10114&";
+			url += "login_sig=" + strLoginSig + "&";
+			url += "pt_uistyle=5&pt_randsalt=0&pt_vcode_v1=0&";
+			url += "pt_verifysession_v1=" + strVerifySession;
+						
  			System.out.println(url);
  			
  			boolean bRet = httpClient.openRequest(url, QQHttpClient.REQ_METHOD_GET);
@@ -1470,42 +1529,29 @@ public class QQProtocol {
 	}
 
 	// 计算第一次登录的密码hash参数
-	private static String CalcPwdHash(String strQQPwd, String strVerifyCode, byte[] bytPtUin)
-	{
-		// UPPER(HEX(MD5(UPPER(HEX(MD5(MD5(密码) + PtUin))) + UPPER(验证码))))
-
-		String strHex = null;
-		
+	private static String calcPwdHash(String strPtUin, String strQQPwd, String strVerifyCode) {
 		try {
-			MessageDigest md5 = MessageDigest.getInstance("MD5");
-	        md5.update(strQQPwd.getBytes("UTF-8"));
-	        byte[] bytPwdMd5 = md5.digest();
-	        
-	        byte[] bytTemp = Utils.byteMerger(bytPwdMd5, bytPtUin);
-	        
-	        md5.reset();
-	        md5.update(bytTemp);
-	        bytTemp = md5.digest();
-			strHex = toHexStr(bytTemp);
-			
-			strHex = strHex.toUpperCase();
-			strVerifyCode = strVerifyCode.toUpperCase();
-			
-			bytTemp = strHex.getBytes("UTF-8");
-			byte[] bytTemp2 = strVerifyCode.getBytes("UTF-8");
-			byte[] bytTemp3 = Utils.byteMerger(bytTemp, bytTemp2);
-	        
-			md5.reset();
-			md5.update(bytTemp3);
-			bytTemp3 = md5.digest();
-
-			strHex = toHexStr(bytTemp3);
-			strHex = strHex.toUpperCase();
+			JsEngine jsEngine = AppData.getAppData().getJsEngine();
+			if (jsEngine != null) {
+				String strUrl = "file:///android_asset/PwdHash.html";
+				String strFuncName = "calcPwdHash";
+				String strArg = "'" + strPtUin + "',";
+				strArg += "'" + strQQPwd + "',";
+				strArg += "'" + strVerifyCode + "'";
+				jsEngine.sendMsg_RunJs(strUrl, strFuncName, strArg);
+				
+				String strPwdHash = "";
+				while (Utils.isEmptyStr(strPwdHash)) {
+					Thread.sleep(100);
+					strPwdHash = jsEngine.getJsResult();
+				}
+				return strPwdHash;
+			}
 		} catch (Exception e) {
-			e.printStackTrace();  
+			e.printStackTrace();
 		} 
 		
-		return strHex;
+		return "";
 	}
 	
 	private static String toHexStr(byte[] bytData) {

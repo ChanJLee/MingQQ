@@ -8,6 +8,7 @@ import android.os.Message;
 import android.widget.Toast;
 
 import com.zym.mingqq.AppData;
+import com.zym.mingqq.JsEngine;
 import com.zym.mingqq.LoginAccountInfo;
 import com.zym.mingqq.LoginAccountList;
 import com.zym.mingqq.QQService;
@@ -67,7 +68,7 @@ public class SplashActivity extends Activity {
 					showVerifyCodeActivity(0);
 				} 
 				break;
-				
+			
 			default:
 				break;
 			}
@@ -79,6 +80,9 @@ public class SplashActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_splash);
 
+		JsEngine jsEngine = new JsEngine(this); 
+		AppData.getAppData().setJsEngine(jsEngine);
+		
 		m_QQClient = AppData.getAppData().getQQClient();
 		m_accountList = AppData.getAppData().getLoginAccountList();
 		QQService.startQQService(this, m_hService);

@@ -20,6 +20,7 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.zym.mingqq.AppData;
+import com.zym.mingqq.JsEngine;
 import com.zym.mingqq.LoginAccountList;
 import com.zym.mingqq.QQService;
 import com.zym.mingqq.R;
@@ -106,6 +107,10 @@ public class LoginActivity extends Activity implements OnClickListener {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_login);
+		
+		JsEngine jsEngine = new JsEngine(this); 
+		AppData.getAppData().setJsEngine(jsEngine);
+				
 		initView();
 		anim();
 		rl.startAnimation(my_Translate);	// 载人时的动画
@@ -117,7 +122,10 @@ public class LoginActivity extends Activity implements OnClickListener {
             String strQQPwd = bundle.getString("qq_pwd");
             m_edtNum.setText(strQQNum);
             m_edtPwd.setText(strQQPwd);
-        }        
+        } else {
+//        	m_edtNum.setText("3040103774");
+//            m_edtPwd.setText("testtest");
+        }
 	}
 
 	@Override
@@ -139,7 +147,7 @@ public class LoginActivity extends Activity implements OnClickListener {
 		
 		m_imgArrow.setOnClickListener(this);
 		m_btnLogin.setOnClickListener(this);
-				
+		
 		initLoginingDlg();
 	}
 
