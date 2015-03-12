@@ -1662,68 +1662,81 @@ std::wstring CQQProtocol::CalcPwdHash(LPCTSTR lpPtUin, LPCTSTR lpQQPwd, LPCTSTR 
 // 计算获取好友/群列表的hash参数
 std::string CQQProtocol::CalcHash(UINT nQQUin, LPCTSTR lpPtWebQq)
 {
-	CHAR b[256] = {0};
-	sprintf(b, "%u", nQQUin);
+	tstring strJSFileName = ZYM::CPath::GetAppPath();
+	strJSFileName += _T("hash.js");
 
-	CHAR * lpText = UnicodeToUtf8(lpPtWebQq);
-	if (NULL == lpText)
+	CHAR * pData = NULL;
+	LONG lSize = 0;
+	BOOL bRet = File_ReadAll(strJSFileName.c_str(), &pData, &lSize);
+	if (!bRet)
 		return "";
-	std::string j = lpText;
-	delete []lpText;
 
-	std::string a = j + "password error";
-	std::string i = "";
-	for (;;)
+	HRESULT hr = CoInitialize(NULL);
+
+	IScriptControlPtr pScriptControl(__uuidof(ScriptControl));
+
+	// Create a VARIANT array of VARIANTs which hold BSTRs
+	LPSAFEARRAY psa;
+	SAFEARRAYBOUND rgsabound[] = { 2, 0 }; // 2 elements, 0-based
+	int i;
+
+	psa = SafeArrayCreate(VT_VARIANT, 1, rgsabound);
+	if (!psa)
 	{
-		if (i.size() <= a.size()) 
-		{
-			i += b;
-			if (i.size() == a.size())
-				break;
-		} 
-		else 
-		{
-			i = i.substr(0, a.size());
-			break;
-		}
+		return "";
 	}
 
-	int E_size = (int)i.size();
-	CHAR * E = new CHAR[E_size];
-	for (int c = 0; c < E_size; c++)
-		E[c] = (CHAR)(i[c] ^ a[c]);
-	
-	char m[] = "0123456789ABCDEF";
-	i = "";
-	for (int c = 0; c < E_size; c++)
+	VARIANT varArgs[2];
+	for (i = 0; i < 2; i++)
 	{
-		i += m[E[c] >> 4 & 15];
-		i += m[E[c] & 15];
+		VariantInit(&varArgs[i]);
 	}
 
-	delete []E;
+	WCHAR szQQUin[256] = { 0 };
+	wsprintf(szQQUin, L"%u", nQQUin);
 
-	return i;
+	V_VT(&varArgs[0]) = VT_BSTR;
+	V_BSTR(&varArgs[0]) = SysAllocString(szQQUin);
+
+	V_VT(&varArgs[1]) = VT_BSTR;
+	V_BSTR(&varArgs[1]) = SysAllocString(lpPtWebQq);
+
+	long lZero = 0;
+	long lOne = 1;
+
+	// Put Elements to the SafeArray:
+	hr = SafeArrayPutElement(psa, &lZero, &varArgs[0]);
+	hr = SafeArrayPutElement(psa, &lOne, &varArgs[1]);
+
+	// Free Elements from the SafeArray:
+	for (i = 0; i<2; i++)
+	{
+		::VariantClear(&varArgs[i]);
+	}
+
+	// Set up Script control properties
+	pScriptControl->Language = "JavaScript";
+	pScriptControl->AllowUI = FALSE;
+	pScriptControl->AddCode(pData);
+
+	//  Call MyStringFunction with the two args:
+	_variant_t outpar = pScriptControl->Run("hash", &psa);
+
+	// Convert VARIANT to C string:
+	_bstr_t bstrReturn = (_bstr_t)outpar;
+	char *pResult = (char *)bstrReturn;
+
+	std::string strRet;
+	if (pResult)
+		strRet = pResult;
+
+	// Print the result out:
+	//printf("func=%s\n",pResult);
+
+	//  Clean up:
+	SafeArrayDestroy(psa);
+
+	CoUninitialize();
+
+	return strRet;
 }
-
-/* JS Hash代码
-P = function (b, j) {
-	for (var a = j + "password error", i = "", E = []; ;)
-		if (i.length <= a.length) {
-			if (i += b, i.length == a.length)
-				break
-		} else {
-			i = i.slice(0, a.length);
-			break
-		}
-
-		for (var c = 0; c < i.length; c++)
-			E[c] = i.charCodeAt(c) ^ a.charCodeAt(c);
-
-		a = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"];
-		i = "";
-		for (c = 0; c < E.length; c++)
-			i += a[E[c] >> 4 & 15], i += a[E[c] & 15];
-		return i
-}
-*/
