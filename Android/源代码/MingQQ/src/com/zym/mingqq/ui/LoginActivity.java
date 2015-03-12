@@ -31,8 +31,8 @@ import com.zym.mingqq.qqclient.protocol.protocoldata.QQLoginResultCode;
 import com.zym.mingqq.qqclient.protocol.protocoldata.QQStatus;
 
 public class LoginActivity extends Activity implements OnClickListener {
-	private Animation my_Translate;		// 浣嶇Щ鍔ㄧ敾
-	private Animation my_Rotate;		// 鏃嬭浆鍔ㄧ敾
+	private Animation my_Translate;		// 位移动画
+	private Animation my_Rotate;		// 旋转动画
 	private LinearLayout rl;
 	private ImageView m_imgArrow;
 	private ImageView m_imgAvatar;
@@ -47,13 +47,13 @@ public class LoginActivity extends Activity implements OnClickListener {
 		@Override
 		public void handleMessage(Message msg) {
 			super.handleMessage(msg);
-			if (2 == msg.what) {		// 宸茬粡鐧诲綍鍒欑洿鎺ヨ繘涓荤獥鍙�
+			if (2 == msg.what) {		// 已经登录则直接进主窗口
 				
-			} else if (1 == msg.what) {	// 鍒濆鍖栨垚鍔�
+			} else if (1 == msg.what) {	// 初始化成功
 				m_QQClient.setUser(m_strQQNum, m_strQQPwd);
 				m_QQClient.setLoginStatus(QQStatus.ONLINE);
 				m_QQClient.login();				
-			} else {					// 鍒濆鍖栧け璐�
+			} else {					// 初始化失败
 				Toast.makeText(getBaseContext(), 
 						R.string.qqservice_init_err, Toast.LENGTH_LONG).show();
 				m_QQClient.setNullCallBackHandler(m_Handler);
@@ -70,7 +70,7 @@ public class LoginActivity extends Activity implements OnClickListener {
 			switch (msg.what) {
 			case QQCallBackMsg.LOGIN_RESULT:
 				closeLoginingDlg();
-				if (msg.arg1 == QQLoginResultCode.SUCCESS) {	// 鐧诲綍鎴愬姛
+				if (msg.arg1 == QQLoginResultCode.SUCCESS) {	// 登录成功
 					LoginAccountList accountList = AppData.getAppData().getLoginAccountList();
 			    	int nPos = accountList.add(m_QQClient.getQQNum(), 
 							m_QQClient.getQQPwd(), m_QQClient.getLoginStatus(), true, true);
@@ -83,14 +83,14 @@ public class LoginActivity extends Activity implements OnClickListener {
 					m_QQClient.setNullCallBackHandler(null);
 					startActivity(new Intent(LoginActivity.this, MainActivity.class));
 					finish();
-				} else if (msg.arg1 == QQLoginResultCode.FAILED) {	// 鐧诲綍澶辫触
+				} else if (msg.arg1 == QQLoginResultCode.FAILED) {	// 登录失败
 					Toast.makeText(getBaseContext(), 
 							R.string.login_failed, Toast.LENGTH_LONG).show();
-				} else if (msg.arg1 == QQLoginResultCode.PASSWORD_ERROR) {	// 瀵嗙爜閿欒
+				} else if (msg.arg1 == QQLoginResultCode.PASSWORD_ERROR) {	// 密码错误
 					Toast.makeText(getBaseContext(), 
 							R.string.id_or_pwd_err, Toast.LENGTH_LONG).show();
 				} else if (msg.arg1 == QQLoginResultCode.NEED_VERIFY_CODE
-						|| msg.arg1 == QQLoginResultCode.VERIFY_CODE_ERROR) {	// 闇�瑕佽緭鍏ラ獙璇佺爜
+						|| msg.arg1 == QQLoginResultCode.VERIFY_CODE_ERROR) {	// 需要输入验证码
 					m_QQClient.setNullCallBackHandler(null);
 					startActivity(new Intent(LoginActivity.this, VerifyCodeActivity.class));
 					finish();
@@ -113,7 +113,7 @@ public class LoginActivity extends Activity implements OnClickListener {
 				
 		initView();
 		anim();
-		rl.startAnimation(my_Translate);	// 杞戒汉鏃剁殑鍔ㄧ敾
+		rl.startAnimation(my_Translate);	// 载人时的动画
 		
 		Intent intent = getIntent();
         Bundle bundle = intent.getExtras();  
@@ -186,8 +186,8 @@ public class LoginActivity extends Activity implements OnClickListener {
 		params.width = cxScreen;
 		params.height = cy;
 		
-		m_dlgLogining.setCanceledOnTouchOutside(true);	//璁剧疆鐐瑰嚮Dialog澶栭儴浠绘剰鍖哄煙鍏抽棴Dialog
-		//m_dlgLogining.setCancelable(false);		// 璁剧疆涓篺alse锛屾寜杩斿洖閿笉鑳介��鍑�
+		m_dlgLogining.setCanceledOnTouchOutside(true);	//设置点击Dialog外部任意区域关闭Dialog
+		//m_dlgLogining.setCancelable(false);		// 设置为false，按返回键不能退出
 	}
 	
 	private void showLoginingDlg() {
@@ -207,7 +207,7 @@ public class LoginActivity extends Activity implements OnClickListener {
 			m_imgArrow.startAnimation(my_Rotate);
 			break;
 			
-		case R.id.login_btnLogin:	// 鈥滅櫥褰曗�濇寜閽�
+		case R.id.login_btnLogin:	// “登录”按钮
 			m_strQQNum = m_edtNum.getText().toString();
 			m_strQQPwd = m_edtPwd.getText().toString();
 			
