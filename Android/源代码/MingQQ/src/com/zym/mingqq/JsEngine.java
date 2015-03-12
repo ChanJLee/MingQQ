@@ -69,6 +69,8 @@ public class JsEngine {
 	}
 	
 	public void sendMsg_RunJs(String strUrl, String strFuncName, String strArg) {
+		m_jsObject.setResult("");	// 清空上一次执行的返回值
+		
 		if (m_hRunJs != null) {
 			JsObject jsObj = new JsObject();
 			jsObj.setUrl(strUrl);
@@ -81,7 +83,7 @@ public class JsEngine {
 			msg.arg2 = 0;
 			msg.obj = jsObj;
 			m_hRunJs.sendMessage(msg);
-		}		
+		}
 	}
 	
 	// 运行JS脚本代码
@@ -90,6 +92,7 @@ public class JsEngine {
 			m_jsObject.setUrl(strUrl);
 			m_jsObject.setFuncName(strFuncName);
 			m_jsObject.setArg(strArg);
+			m_jsObject.setResult("");	// 清空上一次执行的返回值
 			
 			m_webView.setWebViewClient(new WebViewClient() {
 				@Override
@@ -115,6 +118,11 @@ public class JsEngine {
     	return m_jsObject.getResult();
     }
 	
+    // 设置JS返回值
+    public void setJsResult(String strResult) {
+    	m_jsObject.setResult(strResult);
+    }
+    
 	public class JsObject {
 		private String m_strUrl;
 		private String m_strFuncName;

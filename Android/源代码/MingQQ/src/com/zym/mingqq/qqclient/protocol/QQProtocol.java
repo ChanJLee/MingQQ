@@ -1577,38 +1577,24 @@ public class QQProtocol {
 	// 计算获取好友列表的hash参数
 	private static String calcBuddyListHash(int nQQUin, String strPtWebQq) {
 		try {
-			String b = String.valueOf(Utils.getUInt(nQQUin));
-			String j = strPtWebQq;
-			
-			String a = j + "password error";
-			String i = "";
-		    for (; ;) {
-		        if (i.length() <= a.length()) {
-		        	i += b;
-		            if (i.length() == a.length())
-		                break;
-		        } else {
-		            i = i.substring(0, a.length());
-		            break;
-		        }
-		    }
-			
-			byte[] E = new byte[i.length()];
-			for (int c = 0; c < i.length(); c++) {
-				E[c] = (byte) (i.charAt(c) ^ a.charAt(c));
+			JsEngine jsEngine = AppData.getAppData().getJsEngine();
+			if (jsEngine != null) {
+				String strUrl = "file:///android_asset/Hash.html";
+				String strFuncName = "hash";
+				String strArg = "'" + Utils.getUInt(nQQUin) + "',";
+				strArg += "'" + strPtWebQq + "'";
+				jsEngine.sendMsg_RunJs(strUrl, strFuncName, strArg);
+				
+				String strHash = "";
+				while (Utils.isEmptyStr(strHash)) {
+					Thread.sleep(100);
+					strHash = jsEngine.getJsResult();
+				}
+				return strHash;
 			}
-
-			char m[] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-			i = "";
-			for (int c = 0; c < E.length; c++) {
-				i += m[E[c] >> 4 & 15];
-				i += m[E[c] & 15];
-			}
-			return i;
-		} catch (Exception e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} 
 		
 		return "";
 	}
